@@ -9,11 +9,200 @@
     <header></header>
 
     <main>
+
+        <h1>Movies_App Documentation:</h1>
+
         <p>
             This project goal is to build the server-side of a movies web application. 
             The web application will provide users with access to information about different movies, directors, and genres. 
             Users will be able to sign up, update their personal information, and create a list of their favorite movies.
         </p>
+
+        <h2>Endpoints Description:</h2>
+
+        <!-- 
+            Endpoints List:
+                /movies: Return a list of ALL movies to the user;
+                /movies/[title]: Return data (description, genre, director, image URL, whether it’s featured or not) about a single movie by title to the user;
+                /movies/[title]: Return data about a genre (description) by name/title (e.g., “Thriller”);
+                /directors/[name]: Return data about a director (bio, birth year, death year) by name;
+                /users: Allow new users to register;
+                /users/[ID]: Allow users to update their user info (username);
+                /users[ID]/favorites: Allow users to add a movie to their list of favorites (showing only a text that a movie has been added—more on this later);
+                /users[ID]/favorites: Allow users to remove a movie from their list of favorites (showing only a text that a movie has been removed—more on this later);
+                /users/[ID]: Allow existing users to deregister (showing only a text that a user email has been removed—more on this later)
+         -->
+
+        <p>Return a list of ALL movies to the user.</p>
+        <ul>
+            <li>
+                Endpoint URL: /movies
+            </li>
+            <li>
+                Method Type: GET
+            </li>
+            <li>
+                Query Parameters: None
+            </li>
+            <li>
+                Expected Request Body: None
+            </li>
+            <li>
+                Response Data Format: JSON
+            </li>
+        </ul>
+
+        <p>Return data (description, genre, director, image URL, whether it’s featured or not) about a single movie by title to the user.</p>
+        <ul>
+            <li>
+                Endpoint URL: /movies/:title
+            </li>
+            <li>
+                Method Type: GET
+            </li>
+            <li>
+                Query Parameters: movie title (First letter Uppercase)
+            </li>
+            <li>
+                Expected Request Body: None
+            </li>
+            <li>
+                Response Data Format: JSON
+            </li>
+        </ul>
+
+        <p>Return data about a genre (description) by name/title (e.g., “Thriller”).</p>
+        <ul>
+            <li>
+                Endpoint URL: /movies/genre/:genreName
+            </li>
+            <li>
+                Method Type: GET
+            </li>
+            <li>
+                Query Parameters: Genre (first letter capitalized)
+            </li>
+            <li>
+                Expected Request Body: None
+            </li>
+            <li>
+                Response Data Format: JSON
+            </li>
+        </ul>
+
+        <p>Return data about a director (bio, birth year, death year) by name.</p>
+        <ul>
+            <li>
+                Endpoint URL: /movies/directors/:directorName
+            </li>
+            <li>
+                Method Type: GET
+            </li>
+            <li>
+                Query Parameters: Director name (first letters capitalized)
+            </li>
+            <li>
+                Expected Request Body: None
+            </li>
+            <li>
+                Response Data Format: JSON
+            </li>
+        </ul>
+
+        <p>Allow new users to register.</p>
+        <ul>
+            <li>
+                Endpoint URL: /users
+            </li>
+            <li>
+                Method Type: POST
+            </li>
+            <li>
+                Query Parameters: None
+            </li>
+            <li>
+                Expected Request Body: JSON object for new user
+            </li>
+            <li>
+                Response Data Format: JSON
+            </li>
+        </ul>
+
+        <p>Allow users to update their user info (username).</p>
+        <ul>
+            <li>
+                Endpoint URL: /users/:id
+            </li>
+            <li>
+                Method Type: PUT
+            </li>
+            <li>
+                Query Parameters: User id (as integer)
+            </li>
+            <li>
+                Expected Request Body: JSON Format "name":"newUserName"
+            </li>
+            <li>
+                Response Data Format: JSON
+            </li>
+        </ul>
+
+        <p>Allow users to add a movie to their list of favorites (showing only a text that a movie has been added).</p>
+        <ul>
+            <li>
+                Endpoint URL: /users/:id/:movieTitle
+            </li>
+            <li>
+                Method Type: PUT
+            </li>
+            <li>
+                Query Parameters: User id (as integer) and new favorite movie
+            </li>
+            <li>
+                Expected Request Body: None
+            </li>
+            <li>
+                Response Data Format: Text
+            </li>
+        </ul>
+
+        <p>Allow users to remove a movie from their list of favorites (showing only a text that a movie has been removed).</p>
+        <ul>
+            <li>
+                Endpoint URL: /users/:id/:movieTitle
+            </li>
+            <li>
+                Method Type: DELETE
+            </li>
+            <li>
+                Query Parameters: User id (as integer) and new favorite movie
+            </li>
+            <li>
+                Expected Request Body: None
+            </li>
+            <li>
+                Response Data Format: Text
+            </li>
+        </ul>
+
+        <p>Allow existing users to deregister (showing only a text that a user email has been removed).</p>
+        <ul>
+            <li>
+                Endpoint URL: /users/:id
+            </li>
+            <li>
+                Method Type: DELETE
+            </li>
+            <li>
+                Query Parameters: User id (as integer)
+            </li>
+            <li>
+                Expected Request Body: None
+            </li>
+            <li>
+                Response Data Format: Text
+            </li>
+        </ul>
 
         <script type="module" src="server.js"></script>
     </main>
