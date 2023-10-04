@@ -1,13 +1,204 @@
-const express = require('express'),
-    app = express(),
-    morgan = require('morgan'),
-    bodyParser = require('body-parser'),
-    uuid = require('uuid');
+const express = require('express');
+const app = express();
+const morgan = require('morgan');
+// Following not required due to past 4.16 Express version
+// const bodyParser = require('body-parser'),
+const uuid = require('uuid');
+// Require mongoose package and models.js file
+const mongoose = require('mongoose');
+const Models = require('./models.js');
+
+// Models.Movie and Models.User refer to the model names defined in the “models.js” file
+const Movies = Models.Movie;
+const Users = Models.User;
+
+// Allows mongoose to connect to myFlixDB to perform CRUD operations (final step of mongoDB / mongoose integration)
+mongoose.connect('mongodb://localhost:27017/myFlixDB', { useNewUrlParser: true, useUnifiedTopology: true });
 
 app.use(morgan('common'));
-app.use(bodyParser.json());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+// Following not required due to past 4.16 Express version
+// app.use(bodyParser.json());
+
+// Get all movies and return in a json format
+app.get('/movies', async (req, res) => {
+    await Movies.find()
+        .then((movies) => {
+            res.status(201).json(movies);
+        })
+        .catch((err) => {
+            console.error(err);
+            res.status(500).send('Error: ' + err);
+        });
+});
+
+/* Return data (description, genre, director, image URL, 
+whether it’s featured or not) about a single movie by title to the user; */
+app.get('/movies/:Title', async (req, res) => {
+    // findOne required a parameter to find a single movie
+    await Movies.findOne({ Title: req.params.Title })
+        .then((movie) => {
+            res.json(movie);
+        })
+        .catch((err) => {
+            console.error(err);
+            res.status(500).send('Error: ' + err);
+        });
+});
+
+// Return data about a genre (description) by name/title (e.g., “Thriller”);
+// genre gives another endpoint with data in genreName
+app.get('/movies/genre/:Name', async (req, res) => {
+    // findOne required a parameter to find a single instance of genre
+    await Genres.findOne({ Name: req.params.Name })
+        .then((genre) => {
+            res.json(genre.Description);
+        })
+        .catch((err) => {
+            console.error(err);
+            res.status(500).send('Error: ' + err);
+        });
+});
+
+// Return data of a director by name
+app.get('/movies/directors/:directorName', async (req, res) => {
+    await Directors.findOne({ Name: req.params.Name })
+        .then((director) => {
+            res.json(director);
+        })
+        .catch((err) => {
+            console.error(err);
+            res.status(500).send('Error: ' + err);
+        });
+});
+
+// CREATE - Allow new users to register
+/* We’ll expect JSON in this format
+{
+  ID: Integer,
+  Username: String,
+  Password: String,
+  Email: String,
+  Birthday: Date
+}*/
+app.post('/users', async (req, res) => {
+    // Use findOne command to check if existing user DOES exist
+    // await waits for a promise and gets its fulfillment value, used inside an async function
+    await Users.findOne({ Username: req.body.Username })
+        .then((user) => {
+            // if the user with the given username exists, returns error and username already exists as text
+            if (user) {
+                return res.status(400).send(req.body.Username + 'already exists');
+            } else {
+                // create command makes new user document with following keys and data
+                Users.create({
+                    Username: req.body.Username,
+                    Password: req.body.Password,
+                    Email: req.body.Email,
+                    Birthday: req.body.Birthday
+                })
+                // callback function with newly created user document amd successful status
+                .then((user) => { res.status(201).json(user) })
+                // catch for error when creating new user
+                .catch((error) => {
+                    console.error(error);
+                    res.status(500).send('Error: ' + error);
+                })
+            }
+        })
+        // catches errors for the entire post command
+        .catch((error) => {
+            console.error(error);
+            res.status(500).send('Error: ' + error);
+        });
+});
+
+// Update a user's info, by username
+/* We’ll expect JSON in this format
+{
+  Username: String,
+  (required)
+  Password: String,
+  (required)
+  Email: String,
+  (required)
+  Birthday: Date
+}*/
+app.put('/users/:id', async (req, res) => {
+    await Users.findOneAndUpdate({ Username: req.params.Username }, {set:
+    {
+        Username: req.body.Username,
+        Password: req.body.Password,
+        Email: req.body.Email,
+        Birthday: req.body.Birthday
+    }
+    },
+    // Make sure updated document is returned
+    { new: True}) 
+    .then((updatedUser) => {
+        res.json.apply(updatedUser);
+    })
+    .catch((err) => {
+        console.error(err);
+        res.status(500).send('Error: ' + err);
+    })
+});
+
+// Add a movie to a user's list of favorites
+app.post('/users/:Username/Movies/:MovieID', async (req, res) => {
+    await Users.findOneAndUpdate({ Username: req.params.Username }, {
+        $push: { FavoriteMovies: req.params.MovieID }
+    },
+    { new: true}) // This line makes sure that the updated document is returned
+    .then((updatedUser) => {
+        res.json(updatedUser);
+    })
+    .catch((err) => {
+        console.error(err);
+        res.status(500).send('Error: ' + err);
+    });
+});
+
+// DELETE - Allow users to remove a movie from their list of favorites (showing only a text that a movie has been removed—more on this later);
+app.delete('/users/:Username/movies/:MovieID', async (req, res) => {
+    await Users.findOneAndUpdate({ Username: req.params.Username }, {
+        $pull: { FavoriteMovies: req.params.MovieID }
+    },
+    { new: true}) // This line makes sure that the updated document is returned
+    .then((updatedUser) => {
+        res.json(updatedUser);
+    })
+    .catch((err) => {
+        console.error(err);
+        res.status(500).send('Error: ' + err);
+    });
+});
+
+// DELETE - Allow existing users to deregister (showing only a text that a user email has been removed—more on this later)
+// Delete a user by username
+app.delete('/users/:Username', async (req, res) => {
+    await Users.findOneAndRemove({ Username: req.params.Username })
+        .then((user) => {
+            if (!user) {
+            res.status(400).send(req.params.Username + ' was not found');
+            } else {
+            res.status(200).send(req.params.Username + ' was deleted.');
+            }
+        })
+        .catch((err) => {
+            console.error(err);
+            res.status(500).send('Error: ' + err);
+    });
+});
+
+app.listen(8080, () => {
+    console.log('Your app is listening on port 8080.');
+});
+
 
 // A movies array that users can use to gather information from and add to their favorites
+/*
 let movies = [
     {
         "Title":"Gladiator",
@@ -55,7 +246,9 @@ let movies = [
         "Featured":false
     }
 ];
+*/
 
+/*
 let users = [ 
     {
         "name":"Greg",
@@ -70,141 +263,304 @@ let users = [
         "id": 2
     }
 ];
+*/
 
-// Take general movies URL request and return a list of ALL movies to the user
-// Movie list returned from the movies array and sent in JSON format
-app.get('/movies', (req, res) => {
-    res.status(200).json(movies);
-});
+// Non-required Text
+// Movies
+/*
+var movie1 = {
+    Title: "Akira",
+    Description: "A secret military project endangers Neo-Tokyo when it turns a biker gang member into a rampaging psychic psychopath who can only be stopped by a teenager, his gang of biker friends and a group of psychics.",
+    Genre: {
+      Name: "Animation",
+      Description: "Animation is the method that encompasses myriad filmmaking techniques, by which still images are manipulated to create moving images."
+    },
+    Director: {
+      Name: "Katsuhiro Otomo",
+      Bio: "Katsuhiro Otomo is a Japanese manga artist, screenwriter, animator and film director.",
+      Birth: "1954",
+    },
+    ImagePath: "https://flxt.tmsimg.com/assets/p16852_p_v8_ad.jpg",
+    Featured: false
+}
+var movie2 = {
+    Title: "Steamboy",
+    Description: "In 1860s Britain, a boy inventor finds himself caught in the middle of a deadly conflict over a revolutionary advance in steam power.",
+    Genre: {
+      Name: "Animation",
+      Description: "Animation is the method that encompasses myriad filmmaking techniques, by which still images are manipulated to create moving images."
+    },
+    Director: {
+      Name: "Katsuhiro Otomo",
+      Bio: "Katsuhiro Otomo is a Japanese manga artist, screenwriter, animator and film director.",
+      Birth: "1954",
+    },
+    ImagePath: "https://flxt.tmsimg.com/assets/p35910_v_v4_ae.jpg",
+    Featured: true
+}
+var movie3 = {
+    Title: "Chef",
+    Description: "A head chef quits his restaurant job and buys a food truck in an effort to reclaim his creative promise, while piecing back together his estranged family.",
+    Genre: {
+      Name: "Comedy",
+      Description: "Comedy is a genre of fiction that consists of discourses or works intended to be humorous or amusing by inducing laughter, especially in theatre, film, stand-up comedy, television, radio, books, or any other entertainment medium."
+    },
+    Director: {
+      Name: "Jon Favreau",
+      Bio: "Jonathan Kolia Favreau is an American actor and filmmaker.",
+      Birth: "1966",
+    },
+    ImagePath: "https://flxt.tmsimg.com/assets/p10367270_p_v10_af.jpg",
+    Featured: false
+}
+var movie4 = {
+    Title: "Iron Man",
+    Description: "After being held captive in an Afghan cave, billionaire engineer Tony Stark creates a unique weaponized suit of armor to fight evil.",
+    Genre: {
+      Name: "Action",
+      Description: "Action film is a film genre in which the protagonist is thrust into a series of events that typically involve violence and physical feats."
+    },
+    Director: {
+        Name: "Jon Favreau",
+        Bio: "Jonathan Kolia Favreau is an American actor and filmmaker.",
+        Birth: "1966",
+    },
+    ImagePath: "https://upload.wikimedia.org/wikipedia/en/0/02/Iron_Man_%282008_film%29_poster.jpg",
+    Featured: false
+}
+var movie5 = {
+    Title: "Elf",
+    Description: "Raised as an oversized elf, Buddy travels from the North Pole to New York City to meet his biological father, Walter Hobbs, who doesn't know he exists and is in desperate need of some Christmas spirit.",
+    Genre: {
+        Name: "Comedy",
+        Description: "Comedy is a genre of fiction that consists of discourses or works intended to be humorous or amusing by inducing laughter, especially in theatre, film, stand-up comedy, television, radio, books, or any other entertainment medium."
+    },
+    Director: {
+        Name: "Jon Favreau",
+        Bio: "Jonathan Kolia Favreau is an American actor and filmmaker.",
+        Birth: "1966",
+    },
+    ImagePath: "https://flxt.tmsimg.com/assets/p32828_p_v7_as.jpg",
+    Featured: false
+}
+var movie6 = {
+    Title: "Interstellar",
+    Description: "When Earth becomes uninhabitable in the future, a farmer and ex-NASA pilot, Joseph Cooper, is tasked to pilot a spacecraft, along with a team of researchers, to find a new planet for humans.",
+    Genre: {
+      Name: "Drama",
+      Description: "In film and television, drama is a category or genre of narrative fiction (or semi-fiction) intended to be more serious than humorous in tone."
+    },
+    Director: {
+      Name: "Christopher Nolan",
+      Bio: "Best known for his cerebral, often nonlinear, storytelling, acclaimed writer-director Christopher Nolan has gone from low-budget independent films to working on some of the biggest blockbusters ever made.",
+      Birth: "1970",
+    },
+    ImagePath: "https://flxt.tmsimg.com/assets/p10543523_p_v12_ar.jpg",
+    Featured: false
+}
+var movie7 = {
+    Title: "Inception",
+    Description: "A thief who steals corporate secrets through the use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O., but his tragic past may doom the project and his team to disaster.",
+    Genre: {
+        Name: "Drama",
+        Description: "In film and television, drama is a category or genre of narrative fiction (or semi-fiction) intended to be more serious than humorous in tone."
+    },
+    Director: {
+        Name: "Christopher Nolan",
+        Bio: "Best known for his cerebral, often nonlinear, storytelling, acclaimed writer-director Christopher Nolan has gone from low-budget independent films to working on some of the biggest blockbusters ever made.",
+        Birth: "1970",
+    },
+    ImagePath: "https://flxt.tmsimg.com/assets/p7825626_p_v8_af.jpg",
+    Featured: false
+}
+var movie8 = {
+    Title: "Dunkirk",
+    Description: "Allied soldiers from Belgium, the British Commonwealth and Empire, and France are surrounded by the German Army and evacuated during a fierce battle in World War II.",
+    Genre: {
+        Name: "Drama",
+        Description: "In film and television, drama is a category or genre of narrative fiction (or semi-fiction) intended to be more serious than humorous in tone."
+    },
+    Director: {
+        Name: "Christopher Nolan",
+        Bio: "Best known for his cerebral, often nonlinear, storytelling, acclaimed writer-director Christopher Nolan has gone from low-budget independent films to working on some of the biggest blockbusters ever made.",
+        Birth: "1970",
+    },
+    ImagePath: "https://resizing.flixster.com/Q8brnMSWFLzW9S2nPmfqAYdQRQg=/ems.cHJkLWVtcy1hc3NldHMvbW92aWVzL2I1MWE0NTljLTA3ODgtNDZkYy04NTcwLTgzMzg3ZjRmMzRhNC53ZWJw",
+    Featured: false
+}
+var movie9 = {
+    Title: "Silence of the Lambs",
+    Description: "A young FBI cadet must receive the help of an incarcerated and manipulative cannibal killer to help catch another serial killer.",
+    Genre: {
+      Name: "Thriller",
+      Description: "Thriller film, also known as suspense film or suspense thriller, is a broad film genre that involves excitement and suspense in the audience."
+    },
+    Director: {
+        Name: "Jonathan Demme",
+        Bio: "Robert Jonathan Demme was an American director, producer, and screenwriter.",
+        Birth: "1944",
+        Death: "2017"
+    },
+    ImagePath: "https://flxt.tmsimg.com/assets/p13013_p_v11_as.jpg",
+    Featured: false
+}
+var movie10 = {
+    Title: "Something Wild",
+    Description: "A free-spirited woman kidnaps a yuppie for a weekend of adventure. But the fun quickly takes a dangerous turn when her ex-convict husband shows up.",
+    Genre: {
+        Name: "Comedy",
+        Description: "Comedy is a genre of fiction that consists of discourses or works intended to be humorous or amusing by inducing laughter, especially in theatre, film, stand-up comedy, television, radio, books, or any other entertainment medium."
+    },
+    Director: {
+      Name: "Jonathan Demme",
+      Bio: "Robert Jonathan Demme was an American director, producer, and screenwriter.",
+      Birth: "1944",
+      Death: "2017"
+    },
+    ImagePath: "https://flxt.tmsimg.com/assets/p9602_p_v10_ah.jpg",
+    Featured: false
+}
+*/
 
-/* Return data (description, genre, director, image URL, 
-whether it’s featured or not) about a single movie by title to the user; */
-// title becomes a property on the req.params object
-app.get('/movies/:title', (req, res) => {
-    // This definition is called object destructuring
-    // variable title is set to the property of the same name on the object on the right
-    const {title} = req.params;
-    // When === is true, send value of movie into that variable
-    const movie = movies.find(movie => movie.Title === title);
-    if (movie) {
-        res.status(200).json(movie);
-    } else {
-        res.status(400).send('Movie not found in database.');
-    }
-});
+// Users
+/*
+db.users.insertOne(user)
 
-// Return data about a genre (description) by name/title (e.g., “Thriller”);
-// genre gives another endpoint with data in genreName
-app.get('/movies/genre/:genreName', (req, res) => {
-    // variable genreName is set to the property of the same name on the object on the right
-    const {genreName} = req.params;
-    // === finds genre in list that is equal to the searched genre
-    // last .Genre returns the Genre property of that movie object
-    const genre = movies.find(movie => movie.Genre.Name === genreName).Genre;
-    if (genre) {
-        res.status(200).json(genre);
-    } else {
-        res.status(400).send('Genre not found in database.');
-    }
-});
+var user1 = {
+    UserName: "Edward Smith",
+    Password: "Gcawefaj1!",
+    Email: "edwardsmith@gmail.com",
+    Birthday: new Date("1982-01-15"),
+    FavMovies: [ObjectId("6514414d991c0de200323fc4"),ObjectId("65144c9a991c0de200323fc6")]
+}
+var user2 = {
+    UserName: "John Doe",
+    Password: "Jlfjsadfo?",
+    Email: "johndoe@gmail.com",
+    Birthday: new Date("2002-05-20"),
+    FavMovies: [ObjectId("65144c9a991c0de200323fc6"),ObjectId("65144d2a991c0de200323fc8"),ObjectId("65144d48991c0de200323fcd")]
+}
+var user3 = {
+    UserName: "Kelly Anderson",
+    Password: "Ufadfuafrw!",
+    Email: "kellyanderson@gmail.com",
+    Birthday: new Date("1945-05-14"),
+    FavMovies: [ObjectId("6514414d991c0de200323fc4"),ObjectId("65144d35991c0de200323fca")]
+}
+var user4 = {
+    UserName: "Tony Pizzeria",
+    Password: "Ofpoaiqwawtra?",
+    Email: "tonypizzeria@gmail.com",
+    Birthday: new Date("2000-08-26"),
+    FavMovies: [ObjectId("65144cbf991c0de200323fc7"),ObjectId("65144d31991c0de200323fc9")]
+}
+var user5 = {
+    UserName: "Two Chainz",
+    Password: "Bsdf?dfafesw",
+    Email: "chainzz@gmail.com",
+    Birthday: new Date("1995-03-09"),
+    FavMovies: [ObjectId("65144d2a991c0de200323fc8"),ObjectId("65144d3a991c0de200323fcb")]
+}
+var user6 = {
+    UserName: "Sandy Hyatt",
+    Password: "fskaldfsUU!",
+    Email: "sandyhyatt@gmail.com",
+    Birthday: new Date("1998-10-01"),
+    FavMovies: [ObjectId("6514414d991c0de200323fc4"),ObjectId("65144d3a991c0de200323fcb")]
+}
+var user7 = {
+    UserName: "Meghan Piazzo",
+    Password: "dasfYw?faifr",
+    Email: "meghanpiazzo@gmail.com",
+    Birthday: new Date("2003-11-13"),
+    FavMovies: [ObjectId("65144d31991c0de200323fc9"),ObjectId("65144d35991c0de200323fca")]
+}
+var user8 = {
+    UserName: "Evelyn Newhouse",
+    Password: "f7dar2lfaH",
+    Email: "evelynnewhouse@gmail.com",
+    Birthday: new Date("1999-07-24"),
+    FavMovies: [ObjectId("65144cbf991c0de200323fc7"),ObjectId("65144d2a991c0de200323fc8")]
+}
+var user9 = {
+    UserName: "Aaron Dubious",
+    Password: "password",
+    Email: "aarondubious@gmail.com",
+    Birthday: new Date("1965-09-15"),
+    FavMovies: [ObjectId("65144c9a991c0de200323fc6"),ObjectId("65144cbf991c0de200323fc7")]
+}
+var user10 = {
+    UserName: "Howard Dean",
+    Password: "HYAAAAAAAA!",
+    Email: "howarddean@gmail.com",
+    Birthday: new Date("1972-00-00"),
+    FavMovies: [ObjectId("6514414d991c0de200323fc4"),ObjectId("65144d31991c0de200323fc9"),ObjectId("65144d44991c0de200323fcc")]
+}
 
-// Return data of a director by name
-app.get('/movies/directors/:directorName', (req, res) => {
-    // same logic as above
-    const {directorName} = req.params;
-    // same logic as above
-    const director = movies.find(movie => movie.Director.Name === directorName).Director;
-    if (director) {
-        res.status(200).json(director);
-    } else {
-        res.status(400).send('Director not found in database.');
-    }
-});
+*/
 
-// CREATE - Allow new users to register
-app.post('/users', (req, res) => {
-    // Uses bodyParser middleware to read object provided in this request
-    const newUser = req.body;
+// Movie IDs
 
-    if (newUser.name) {
-        // newUser object, we can create a property on that object with dot notation
-        newUser.id = uuid.v4();
-        users.push(newUser);
-        res.status(201).json(newUser);
-    } else {
-        res.status(400).send('Users need names.');
-    }
-});
+/*
+    1: ObjectId("6514414d991c0de200323fc4")
+    2: ObjectId("65144c7c991c0de200323fc5")
+    3: ObjectId("65144c9a991c0de200323fc6")
+    4: ObjectId("65144cbf991c0de200323fc7")
+    5: ObjectId("65144d2a991c0de200323fc8")
+    6: ObjectId("65144d31991c0de200323fc9")
+    7: ObjectId("65144d35991c0de200323fca")
+    8: ObjectId("65144d3a991c0de200323fcb")
+    9: ObjectId("65144d44991c0de200323fcc")
+    10: ObjectId("65144d48991c0de200323fcd")
+*/
 
-// UPDATE - Allow users to update their user info (username)
-app.put('/users/:id', (req, res) => {
-    const {id} = req.params;
-    // Uses bodyParser middleware to read object provided in this request
-    const updatedUser = req.body;
+// Database Updates
 
-    // let because if there is a user, we will give them the new updated user's name
-    // Use == instead of === because we are comparing a number user.id to a string id
-    let user = users.find(user => user.id == id);
+/*
+db.movies.findOne( { _id: ObjectId("65144d2a991c0de200323fc8") })
 
-    if (user) {
-        user.name = updatedUser.name;
-        res.status(200).json(user);
-    } else {
-        res.status(400).send('User not found.');
-    }
-});
+db.movies.updateOne(
+    { _id: ObjectId("65144d2a991c0de200323fc8") },
+    { $set: { Description: "Buddy (Will Ferrell) was accidentally transported to the North Pole as a toddler and raised to adulthood among Santa's elves." } }
+  )
+db.movies.updateOne(
+    { _id: ObjectId("65144c7c991c0de200323fc5") },
+    { $set: { movieID: "2" } }
+)
+db.movies.updateOne(
+    { _id: ObjectId("65144c9a991c0de200323fc6") },
+    { $set: { movieID: "3" } }
+)
+db.movies.updateOne(
+    { _id: ObjectId("65144cbf991c0de200323fc7") },
+    { $set: { movieID: "4" } }
+)
+db.movies.updateOne(
+    { _id: ObjectId("65144d2a991c0de200323fc8") },
+    { $set: { movieID: "5" } }
+)
+db.movies.updateOne(
+    { _id: ObjectId("65144d31991c0de200323fc9") },
+    { $set: { movieID: "6" } }
+)
+db.movies.updateOne(
+    { _id: ObjectId("65144d35991c0de200323fca") },
+    { $set: { movieID: "7" } }
+)
+db.movies.updateOne(
+    { _id: ObjectId("65144d3a991c0de200323fcb") },
+    { $set: { movieID: "8" } }
+)
+db.movies.updateOne(
+    { _id: ObjectId("65144d44991c0de200323fcc") },
+    { $set: { movieID: "9" } }
+)
+db.movies.updateOne(
+    { _id: ObjectId("65144d48991c0de200323fcd") },
+    { $set: { movieID: "10" } }
+)
 
-// CREATE - Allow users to add a movie to their list of favorites (showing only a text that a movie has been added—more on this later);
-app.put('/users/:id/:movieTitle', (req, res) => {
-    const {id, movieTitle} = req.params;
-    
-    // Uses bodyParser middleware to read object provided in this request
-    let user = users.find(user => user.id == id);
 
-    if (user) {
-        user.favoriteMovies.push(movieTitle);
-        // Left over from Testing
-        // res.status(200).json(user);
-        res.status(200).send(`${movieTitle} has been added to the user ${id}'s array`);
-    } else {
-        res.status(400).send('User Not Found');
-    }
-});
+db.movies.update( {"Director.Name": "Jon Favreau"}, { $set: {"Director.Bio": "Initially an indie film favorite, actor Jon Favreau has progressed to strong mainstream visibility into the millennium and, after nearly two decades in the business, is still enjoying character stardom as well as earning notice as a writer,producer,director."})
 
-// DELETE - Allow users to remove a movie from their list of favorites (showing only a text that a movie has been removed—more on this later);
-app.delete('/users/:id/:movieTitle', (req, res) => {
-    const {id, movieTitle} = req.params;
-    
-    // Uses bodyParser middleware to read object provided in this request
-    let user = users.find(user => user.id == id);
-
-    if (user) {
-        // User filter method that takes a function as an argument
-        // We essentially replace the array with one that does not have any movies matching movieTitle
-        user.favoriteMovies = user.favoriteMovies.filter(title => title !== movieTitle);
-        res.status(200).send(`${movieTitle} has been removed from the user ${id}'s array`);
-    } else {
-        res.status(400).send('User Not Found');
-    }
-});
-
-// DELETE - Allow existing users to deregister (showing only a text that a user email has been removed—more on this later)
-app.delete('/users/:id', (req, res) => {
-    const {id} = req.params;
-    
-    // Uses bodyParser middleware to read object provided in this request
-    let user = users.find(user => user.id == id);
-
-    if (user) {
-        // User filter method that takes a function as an argument
-        // We essentially replace the array with one that does not have any movies matching movieTitle
-        users = users.find(user => user.id != id);
-        res.status(200).send(`User's ${id} has been deleted`);
-    } else {
-        res.status(400).send('User Not Found');
-    }
-});
-
-app.listen(8080, () => {
-    console.log('Your app is listening on port 8080.');
-});
+*/
