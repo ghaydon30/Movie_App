@@ -12,6 +12,9 @@ const Models = require('./models.js');
 const Movies = Models.Movie;
 const Users = Models.User;
 
+// Import express validator for validation purposes
+const { check, validationResults, validationResult } = require('express-validator');
+
 // Allows mongoose to connect to myFlixDB to perform CRUD operations (final step of mongoDB / mongoose integration)
 mongoose.connect('mongodb://localhost:27017/myFlixDB', { useNewUrlParser: true, useUnifiedTopology: true });
 
@@ -20,6 +23,22 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 // Following not required due to past 4.16 Express version
 // app.use(bodyParser.json());
+
+// Add CORS to the app
+const cors = require('cors');
+// Code to specify which domains are allowed access to this API
+let allowedOrigins = ['http://localhost:8080', 'http://testsite.com'];
+app.use(cors( {
+    origin: (origin, callback) => {
+        if(!origin) return callback(null, true);
+        // Check if a specific origin is not found in the allowed origin list
+        if(allowedOrigins.indexOf(origin) === -1) {
+            let message = 'The CORS policy for this application doesn\'t allow access from origin ' + origin;
+            return callback(new WebTransportError(message ), false);
+        }
+        return callback(null, true);
+    }
+}));
 
 // import auth.js file from repo, the (app) makes sure that express is available in auth.js as well
 let auth = require('./auth.js')(app);
@@ -93,6 +112,26 @@ app.get('/movies/directors/:Name', passport.authenticate('jwt', {session: false}
   Birthday: Date
 }*/
 app.post('/users', async (req, res) => {
+    // Validation logic for request, checks several pieces of the user input using validator
+    // each of these checks a part of the HTTP req, and presents an error message string followed by the first comma
+    [
+        // Check to verify a username length greater than 5
+        check('Username', 'Username is required').isLength({min: 5}),
+        // Check if username contains alphanumeric characters
+        check('Username', 'Username contains non alphanumeric characters - not allowed.').isAlphanumeric(),
+        // .not().isEmpty() chains methods and means "is not empty"
+        check('Password', 'Password is required').not().isEmpty(),
+        check('Email', 'Email does not appear to be valid').isEmail()
+    ], async (req, res) => {
+        // Error check for the validation object
+        let errors = validationResult(req);
+        // If there are errors, return them as a JSON object in an array format
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
+    }
+    // Hash the password submitted in the req body
+    let hashedPassword = Users.hashedPassword(req.body.password);
     // Use findOne command to check if existing user DOES exist
     // await waits for a promise and gets its fulfillment value, used inside an async function
     await Users.findOne({ Username: req.body.Username })
@@ -104,7 +143,7 @@ app.post('/users', async (req, res) => {
                 // create command makes new user document with following keys and data
                 Users.create({
                     Username: req.body.Username,
-                    Password: req.body.Password,
+                    Password: hashedPassword,
                     Email: req.body.Email,
                     Birthday: req.body.Birthday
                 })
@@ -136,10 +175,30 @@ app.post('/users', async (req, res) => {
   Birthday: Date
 }*/
 app.put('/users/:Username', passport.authenticate('jwt', {session: false}), async (req, res) => {
+    // Validation logic for request, checks several pieces of the user input using validator
+    // each of these checks a part of the HTTP req, and presents an error message string followed by the first comma
+    [
+        // Check to verify a username length greater than 5
+        check('Username', 'Username is required').isLength({min: 5}),
+        // Check if username contains alphanumeric characters
+        check('Username', 'Username contains non alphanumeric characters - not allowed.').isAlphanumeric(),
+        // .not().isEmpty() chains methods and means "is not empty"
+        check('Password', 'Password is required').not().isEmpty(),
+        check('Email', 'Email does not appear to be valid').isEmail()
+    ], async (req, res) => {
+        // Error check for the validation object
+        let errors = validationResult(req);
+        // If there are errors, return them as a JSON object in an array format
+        if (!errors.isEmpty()) {
+            return res.status(422).json({ errors: errors.array() });
+        }
+    }
+    // Hash the password submitted in the req body
+    let hashedPassword = Users.hashedPassword(req.body.password);
     await Users.findOneAndUpdate({ Username: req.params.Username }, {$set:
         {
             Username: req.body.Username,
-            Password: req.body.Password,
+            Password: hashedPassword,
             Email: req.body.Email,
             Birthday: req.body.Birthday
         }
@@ -204,6 +263,7 @@ app.delete('/users/:Username', passport.authenticate('jwt', {session: false}), a
     });
 });
 
-app.listen(8080, () => {
-    console.log('Your app is listening on port 8080.');
+const port = process.env.PORT || 8080;
+app.listen(port, '0.0.0.0', () => {
+    console.log('Listening on port ' + port);
 });

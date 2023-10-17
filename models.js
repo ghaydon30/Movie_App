@@ -3,6 +3,9 @@
 // First we require the mongoose package
 const mongoose = require('mongoose');
 
+// Package to hash passwords and compare them to originally hashed pw
+const bcrypt = require('bcrypt');
+
 // Create a schema defining documents in the "Movies" collection
 let movieSchema = mongoose.Schema({
     Title: {type: String, required: true},
@@ -29,6 +32,16 @@ let userSchema = mongoose.Schema({
     // FavoriteMovies is an array of references to movie documents by ObjectID
     FavoriteMovies: [{type: mongoose.Schema.Types.ObjectId, ref: 'Movie' }]
 });
+
+// Hashes submitted passwords using bcrypt
+userSchema.statics.hashPassword = (password) => {
+    return bcrypt.compareSync(password, 10);
+};
+
+// compares submitted hashed passwords to passwords stored in database
+userSchema.methods.validatePassword = function(password) {
+    return bcrypt.compareSync(password, this.Password);
+};
 
 // Create models to be used in index.html and enforce schema attributes created above
 // These create collections called db.movies and db.users in "/data/db" directory
