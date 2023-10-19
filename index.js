@@ -27,6 +27,8 @@ app.use(express.urlencoded({ extended: true }));
 // Following not required due to past 4.16 Express version
 // app.use(bodyParser.json());
 
+const bcrypt = require("bcrypt")
+
 // Add CORS to the app
 const cors = require('cors');
 // Code to specify which domains are allowed access to this API
