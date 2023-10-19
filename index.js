@@ -50,6 +50,10 @@ let auth = require('./auth.js')(app);
 const passport = require('passport');
 require('./passport.js');
 
+app.get('/', passport.authenticate('jwt', {session: false}), (req, res) => {
+    res.send('Welcome to myFlix!')
+});
+
 // Get all movies and return in a json format
 // use of async makes arrow functions asynchronous
 // passport.authenticate will now check the required JWT token after decoding with the JWT authentication strategy
