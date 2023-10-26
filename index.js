@@ -140,7 +140,7 @@ app.post('/users', async (req, res) => {
         }
     }
     // Hash the password submitted in the req body
-    let hashedPassword = Users.hashedPassword(req.body.password);
+    let hashedPassword = Users.hashPassword(req.body.Password);
     // Use findOne command to check if existing user DOES exist
     // await waits for a promise and gets its fulfillment value, used inside an async function
     await Users.findOne({ Username: req.body.Username })
@@ -272,7 +272,13 @@ app.delete('/users/:Username', passport.authenticate('jwt', {session: false}), a
     });
 });
 
-const port = process.env.PORT || 8080;
+// Local port code
+// app.listen(8080, () => {
+//     console.log('Your app is listening on port 8080');
+// });
+
+
+// const port = process.env.PORT || 8080;
 app.listen(port, '0.0.0.0', () => {
     console.log('Listening on port ' + port);
 });

@@ -35,7 +35,7 @@ let userSchema = mongoose.Schema({
 
 // Hashes submitted passwords using bcrypt
 userSchema.statics.hashPassword = (password) => {
-    return bcrypt.compareSync(password, 10);
+    return bcrypt.hashSync(password, 10);
 };
 
 // compares submitted hashed passwords to passwords stored in database
