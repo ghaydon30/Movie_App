@@ -59,7 +59,9 @@ app.get('/', (req, res) => {
 // Get all movies and return in a json format
 // use of async makes arrow functions asynchronous
 // passport.authenticate will now check the required JWT token after decoding with the JWT authentication strategy
-app.get('/movies', passport.authenticate('jwt', {session: false}), async (req, res) => {
+// RESTORE FOLLOWING LINE (AND DELETE NEXT AFTER THAT) WHEN REVERTING TO PRODUCTION VERSION
+// app.get('/movies', passport.authenticate('jwt', {session: false}), async (req, res) => {
+app.get('/movies', async (req, res) => {
     // Movies collection  
     await Movies.find()
         .then((movies) => {
