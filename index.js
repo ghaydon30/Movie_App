@@ -32,7 +32,7 @@ const bcrypt = require("bcrypt")
 // Add CORS to the app
 const cors = require('cors');
 // Code to specify which domains are allowed access to this API
-let allowedOrigins = ['http://localhost:8080', 'http://testsite.com', 'http://localhost:1234', 'http://ghaydon-movieflix.netlify.app'];
+let allowedOrigins = ['http://localhost:8080', 'http://testsite.com', 'http://localhost:1234', 'https://ghaydon-movieflix.netlify.app'];
 app.use(cors( {
     origin: (origin, callback) => {
         if(!origin) return callback(null, true);
