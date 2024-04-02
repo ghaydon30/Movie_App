@@ -147,7 +147,8 @@ app.post('/users',
         .then((user) => {
             // if the user with the given username exists, returns error and username already exists as text
             if (user) {
-                return res.status(400).send(req.body.Username + 'already exists');
+                // (OLD RETURN STATEMENT) return res.status(400).send(req.body.Username + 'already exists');
+                return res.status(400).json({ error: req.body.Username + ' already exists' });
             } else {
                 // create command makes new user document with following keys and data
                 Users.create({
